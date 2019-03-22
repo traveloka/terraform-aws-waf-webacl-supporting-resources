@@ -38,7 +38,7 @@ module "owasp_top_10_rules" {
   csrf_expected_size   = "36"
 }
 
-# Random value generator for the suffix of a rate limiter rule
+# Random value generator for the suffix of the resources
 resource "random_id" "this" {
   byte_length = "8"
 }
@@ -67,7 +67,7 @@ module "webacl_supporting_resources" {
   environment    = "staging"
   description    = "WebACL for tsiwaf"
 
-  s3_logging_bucket = "<name_of_the_bucket_for_logging>" # Logging bucket should be in the same region as the bucket
+  s3_logging_bucket = "<bucket-for-logging>" # Logging bucket should be in the same region as the bucket
 
   firehose_buffer_size     = "1"
   firehose_buffer_interval = "60"
@@ -75,10 +75,10 @@ module "webacl_supporting_resources" {
 
 resource "aws_waf_web_acl" "tsiwaf_webacl" {
   # The name or description of the web ACL.
-  name = "tsiwaf-WebACL"
+  name = "tsiwaf-WebACL-${random_id.this.hex}"
 
   # The name or description for the Amazon CloudWatch metric of this web ACL.
-  metric_name = "tsiwafWebACL"
+  metric_name = "tsiwafWebACL${random_id.this.hex}"
 
   # Configuration block to enable WAF logging.
   logging_configuration {

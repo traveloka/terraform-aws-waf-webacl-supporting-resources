@@ -54,7 +54,7 @@ module "webacl_supporting_resources" {
   environment    = "staging"
   description    = "WebACL for tsiwaf"
 
-  s3_logging_bucket = "<name_of_the_bucket_for_logging>"
+  s3_logging_bucket = "<name_of_the_bucket_for_logging>" # Logging bucket should be in the same region as the bucket
 
   firehose_buffer_size     = "1"
   firehose_buffer_interval = "60"

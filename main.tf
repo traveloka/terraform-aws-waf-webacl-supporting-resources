@@ -111,7 +111,7 @@ resource "aws_cloudwatch_log_group" "firehose_error_logs" {
   retention_in_days = "14"
 
   tags = {
-    Name          = "/aws/firehose/${lower(var.service_name)}-WebACL-${random_id.this.hex}"
+    Name          = "/aws/kinesisfirehose/aws-waf-logs-${lower(var.service_name)}-WebACL-${random_id.this.hex}"
     Description   = "Log group to store data delivery error information from Firehose for ${lower(var.service_name)}-WebACL"
     ProductDomain = "${lower(var.product_domain)}"
     Service       = "${lower(var.service_name)}"

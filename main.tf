@@ -62,6 +62,15 @@ resource "aws_iam_role" "firehose" {
   assume_role_policy    = "${data.aws_iam_policy_document.firehose_assume_role_policy.json}"
   force_detach_policies = "false"
   max_session_duration  = "43200"
+
+  tags {
+    Name          = "ServiceRoleForFirehose_${lower(var.service_name)}-WebACL-${random_id.this.hex}"
+    Description   = "Service Role for ${lower(var.service_name)}-WebACL Firehose"
+    ProductDomain = "${lower(var.product_domain)}"
+    Service       = "${lower(var.service_name)}"
+    Environment   = "${lower(var.environment)}"
+    ManagedBy     = "terraform"
+  }
 }
 
 data "aws_iam_policy_document" "webacl_traffic_information" {
@@ -98,7 +107,7 @@ resource "aws_s3_bucket_policy" "webacl_traffic_information" {
 }
 
 resource "aws_cloudwatch_log_group" "firehose_error_logs" {
-  name              = "/aws/firehose/${lower(var.service_name)}-WebACL-${random_id.this.hex}"
+  name              = "/aws/kinesisfirehose/aws-waf-logs-${lower(var.service_name)}-WebACL-${random_id.this.hex}"
   retention_in_days = "14"
 
   tags = {
@@ -112,7 +121,7 @@ resource "aws_cloudwatch_log_group" "firehose_error_logs" {
 }
 
 resource "aws_cloudwatch_log_stream" "firehose_error_logs" {
-  name           = "${lower(var.service_name)}-WebACL-${random_id.this.hex}"
+  name           = "S3Delivery"
   log_group_name = "${aws_cloudwatch_log_group.firehose_error_logs.name}"
 }
 

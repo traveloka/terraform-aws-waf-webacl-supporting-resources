@@ -1,11 +1,15 @@
+# Get the region where the resources will be created.
 data "aws_region" "this" {}
 
+# Get caller identity.
 data "aws_caller_identity" "this" {}
 
+# Random generator which going to be used as name suffix for all resources.
 resource "random_id" "this" {
   byte_length = "8"
 }
 
+# S3 Bucket to store WebACL Traffic Logs. This resource is needed by Amazon Kinesis Firehose as data delivery output target.
 resource "aws_s3_bucket" "webacl_traffic_information" {
   bucket = "${lower(var.service_name)}-webacl-${data.aws_region.this.name}-${data.aws_caller_identity.this.account_id}-${random_id.this.hex}"
   region = "${data.aws_region.this.name}"
@@ -38,8 +42,132 @@ resource "aws_s3_bucket" "webacl_traffic_information" {
   }
 }
 
+# AWS Glue Catalog Database. This resource is needed by Amazon Kinesis Firehose as data format conversion configuration, for transforming from JSON to Parquet.
+resource "aws_glue_catalog_database" "database" {
+  name        = "${lower(var.service_name)}_webacl_${random_id.this.hex}"
+  description = "Glue Catalog Database for ${lower(var.service_name)} WAF Logs"
+}
+
+# This table store column information that is needed by Amazon Kinesis Firehose as data format conversion configuration, for transforming from JSON to Parquet.
+resource "aws_glue_catalog_table" "table" {
+  name          = "logs"
+  database_name = "${aws_glue_catalog_database.database.name}"
+
+  description = "Table which stores schema of WAF Logs for ${lower(var.service_name)} WebACL"
+
+  table_type = "EXTERNAL_TABLE"
+
+  parameters = {
+    EXTERNAL       = "TRUE"
+    classification = "Parquet"
+  }
+
+  partition_keys = [
+    {
+      name = "year"
+      type = "int"
+    },
+    {
+      name = "month"
+      type = "int"
+    },
+    {
+      name = "day"
+      type = "int"
+    },
+    {
+      name = "hour"
+      type = "int"
+    },
+  ]
+
+  storage_descriptor {
+    location      = "s3://${aws_s3_bucket.webacl_traffic_information.id}/logs"
+    input_format  = "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat"
+    output_format = "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat"
+
+    ser_de_info {
+      name                  = "ParquetHiveSerDe"
+      serialization_library = "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
+    }
+
+    columns = [
+      {
+        name = "timestamp"
+        type = "timestamp"
+      },
+      {
+        name = "formatversion"
+        type = "int"
+      },
+      {
+        name = "webaclid"
+        type = "string"
+      },
+      {
+        name = "terminatingruleid"
+        type = "string"
+      },
+      {
+        name = "terminatingruletype"
+        type = "string"
+      },
+      {
+        name = "action"
+        type = "string"
+      },
+      {
+        name = "httpsourcename"
+        type = "string"
+      },
+      {
+        name = "httpsourceid"
+        type = "string"
+      },
+      {
+        name = "rulegrouplist"
+        type = "array<struct<ruleGroupId:string,terminatingRule:string,nonTerminatingMatchingRules:array<struct<action:string,ruleId:string>>,excludedRules:array<struct<exclusionType:string,ruleId:string>>>>"
+      },
+      {
+        name = "ratebasedrulelist"
+        type = "array<struct<rateBasedRuleId:string,limitKey:string,maxRateAllowed:int>>"
+      },
+      {
+        name = "nonterminatingmatchingrules"
+        type = "array<struct<action:string,ruleId:string>>"
+      },
+      {
+        name = "httprequest"
+        type = "struct<clientIp:string,country:string,headers:array<struct<name:string,value:string>>,uri:string,args:string,httpVersion:string,httpMethod:string,requestId:string>"
+      },
+    ]
+  }
+}
+
+# This log group is needed by Amazon Kinesis Firehose for storing delivery error information.
+resource "aws_cloudwatch_log_group" "firehose_error_logs" {
+  name              = "/aws/kinesisfirehose/aws-waf-logs-${lower(var.service_name)}-WebACL-${random_id.this.hex}"
+  retention_in_days = "14"
+
+  tags = {
+    Name          = "/aws/kinesisfirehose/aws-waf-logs-${lower(var.service_name)}-WebACL-${random_id.this.hex}"
+    Description   = "Log group to store data delivery error information from Firehose for ${lower(var.service_name)}-WebACL"
+    ProductDomain = "${lower(var.product_domain)}"
+    Service       = "${lower(var.service_name)}"
+    Environment   = "${lower(var.environment)}"
+    ManagedBy     = "terraform"
+  }
+}
+
+# This log stream is the one which hold the information inside the log group above.
+resource "aws_cloudwatch_log_stream" "firehose_error_logs" {
+  name           = "S3Delivery"
+  log_group_name = "${aws_cloudwatch_log_group.firehose_error_logs.name}"
+}
+
+# Policy document that will allow the Firehose to assume an IAM Role.
 data "aws_iam_policy_document" "firehose_assume_role_policy" {
-  statement = {
+  statement {
     actions = [
       "sts:AssumeRole",
     ]
@@ -54,6 +182,7 @@ data "aws_iam_policy_document" "firehose_assume_role_policy" {
   }
 }
 
+# IAM Role for the Firehose, so it able to access those resources above.
 resource "aws_iam_role" "firehose" {
   name        = "ServiceRoleForFirehose_${lower(var.service_name)}-WebACL-${random_id.this.hex}"
   path        = "/service-role/firehose/"
@@ -73,8 +202,9 @@ resource "aws_iam_role" "firehose" {
   }
 }
 
-data "aws_iam_policy_document" "webacl_traffic_information" {
-  statement = {
+# Policy document that will be attached to the S3 Bucket, to make the bucket accessible by the Firehose.
+data "aws_iam_policy_document" "allow_s3_actions" {
+  statement {
     effect = "Allow"
 
     principals = {
@@ -101,32 +231,15 @@ data "aws_iam_policy_document" "webacl_traffic_information" {
   }
 }
 
+# Attach the policy above to the bucket.
 resource "aws_s3_bucket_policy" "webacl_traffic_information" {
   bucket = "${aws_s3_bucket.webacl_traffic_information.id}"
-  policy = "${data.aws_iam_policy_document.webacl_traffic_information.json}"
+  policy = "${data.aws_iam_policy_document.allow_s3_actions.json}"
 }
 
-resource "aws_cloudwatch_log_group" "firehose_error_logs" {
-  name              = "/aws/kinesisfirehose/aws-waf-logs-${lower(var.service_name)}-WebACL-${random_id.this.hex}"
-  retention_in_days = "14"
-
-  tags = {
-    Name          = "/aws/kinesisfirehose/aws-waf-logs-${lower(var.service_name)}-WebACL-${random_id.this.hex}"
-    Description   = "Log group to store data delivery error information from Firehose for ${lower(var.service_name)}-WebACL"
-    ProductDomain = "${lower(var.product_domain)}"
-    Service       = "${lower(var.service_name)}"
-    Environment   = "${lower(var.environment)}"
-    ManagedBy     = "terraform"
-  }
-}
-
-resource "aws_cloudwatch_log_stream" "firehose_error_logs" {
-  name           = "S3Delivery"
-  log_group_name = "${aws_cloudwatch_log_group.firehose_error_logs.name}"
-}
-
-data "aws_iam_policy_document" "firehose_error_logs" {
-  statement = {
+# Policy document that will be attached to the IAM Role, to make the role able to put logs to Cloudwatch.
+data "aws_iam_policy_document" "allow_put_log_events" {
+  statement {
     sid = "AllowWritingToLogStreams"
 
     actions = [
@@ -141,13 +254,42 @@ data "aws_iam_policy_document" "firehose_error_logs" {
   }
 }
 
-resource "aws_iam_role_policy" "firehose_error_logs" {
+# Attach the policy above to the IAM Role.
+resource "aws_iam_role_policy" "allow_put_log_events" {
   name = "AllowWritingToLogStreams"
   role = "${aws_iam_role.firehose.name}"
 
-  policy = "${data.aws_iam_policy_document.firehose_error_logs.json}"
+  policy = "${data.aws_iam_policy_document.allow_put_log_events.json}"
 }
 
+# Policy document that will be attached to the IAM Role, to make the role able to get Glue Table Versions.
+data "aws_iam_policy_document" "allow_glue_get_table_versions" {
+  statement {
+    sid = "AllowGettingGlueTableVersions"
+
+    actions = [
+      "glue:GetTableVersions",
+    ]
+
+    effect = "Allow"
+
+    resources = [
+      "arn:aws:glue:${data.aws_region.this.name}:${data.aws_caller_identity.this.account_id}:table/${aws_glue_catalog_database.database.name}/logs",
+      "arn:aws:glue:${data.aws_region.this.name}:${data.aws_caller_identity.this.account_id}:database/${aws_glue_catalog_database.database.name}",
+      "arn:aws:glue:${data.aws_region.this.name}:${data.aws_caller_identity.this.account_id}:catalog",
+    ]
+  }
+}
+
+# Attach the policy above to the IAM Role.
+resource "aws_iam_role_policy" "allow_glue_get_table_versions" {
+  name = "AllowGettingGlueTableVersions"
+  role = "${aws_iam_role.firehose.name}"
+
+  policy = "${data.aws_iam_policy_document.allow_glue_get_table_versions.json}"
+}
+
+# Creating the Firehose.
 resource "aws_kinesis_firehose_delivery_stream" "waf" {
   name        = "aws-waf-logs-${lower(var.service_name)}-WebACL-${random_id.this.hex}"
   destination = "extended_s3"
@@ -159,10 +301,36 @@ resource "aws_kinesis_firehose_delivery_stream" "waf" {
     buffer_size     = "${var.firehose_buffer_size}"
     buffer_interval = "${var.firehose_buffer_interval}"
 
+    prefix              = "logs/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/"
+    error_output_prefix = "errors/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/!{firehose:error-output-type}"
+
     cloudwatch_logging_options {
       enabled         = "true"
       log_group_name  = "${aws_cloudwatch_log_group.firehose_error_logs.name}"
       log_stream_name = "${aws_cloudwatch_log_stream.firehose_error_logs.name}"
+    }
+
+    data_format_conversion_configuration {
+      enabled = "true"
+
+      input_format_configuration {
+        deserializer {
+          open_x_json_ser_de {}
+        }
+      }
+
+      output_format_configuration {
+        serializer {
+          parquet_ser_de {}
+        }
+      }
+
+      schema_configuration {
+        role_arn      = "${aws_iam_role.firehose.arn}"
+        database_name = "${aws_glue_catalog_table.table.database_name}"
+        table_name    = "${aws_glue_catalog_table.table.name}"
+        region        = "${data.aws_region.this.name}"
+      }
     }
   }
 

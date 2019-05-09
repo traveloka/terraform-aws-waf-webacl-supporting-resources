@@ -1,25 +1,28 @@
 # Default provider.
 provider "aws" {
-  version = "v2.2.0"
+  version = "v2.9.0"         # Use latest if possible. See https://github.com/terraform-providers/terraform-provider-aws/releases
   region  = "ap-southeast-1"
 }
 
 # us-east-1 provider. Used by webacl_supporting_resources.
 # If WAF resources are meant to protect Cloudfront, they should be Global Resources.
 provider "aws" {
-  version = "v2.2.0"
+  version = "v2.9.0"    # Use latest if possible. See https://github.com/terraform-providers/terraform-provider-aws/releases
   region  = "us-east-1"
   alias   = "us-east-1"
 }
 
 provider "random" {
-  version = "v2.1.0"
+  version = "v2.1.2" # Use latest if possible. See https://github.com/terraform-providers/terraform-provider-random/releases
 }
 
 # AWS WAF Rules for OWASP Top 10 security risks protection.
+# For a better understanding of what are those parameters mean,
+# please read the description of each variable in the variables.tf file:
+# https://github.com/traveloka/terraform-aws-waf-owasp-top-10-rules/blob/master/variables.tf 
 module "owasp_top_10_rules" {
   source  = "traveloka/waf-owasp-top-10-rules/aws"
-  version = "v0.1.0"
+  version = "v0.1.1"
 
   product_domain = "tsi"
   service_name   = "tsiwaf"
@@ -67,9 +70,9 @@ module "webacl_supporting_resources" {
   environment    = "staging"
   description    = "WebACL for tsiwaf"
 
-  s3_logging_bucket = "<bucket-for-logging>" # Logging bucket should be in the same region as the bucket
+  s3_logging_bucket = "<name-of-the-bucket>" # Logging bucket should be in the same region as the bucket
 
-  firehose_buffer_size     = "1"
+  firehose_buffer_size     = "128"
   firehose_buffer_interval = "60"
 }
 

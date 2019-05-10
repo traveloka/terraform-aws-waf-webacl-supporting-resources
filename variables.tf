@@ -25,12 +25,12 @@ variable "s3_logging_bucket" {
 
 variable "firehose_buffer_size" {
   type        = "string"
-  description = "Buffer incoming data to the specified size, in MBs, before delivering it to the destination. The default value is 5. We recommend setting SizeInMBs to a value greater than the amount of data you typically ingest into the delivery stream in 10 seconds. For example, if you typically ingest data at 1 MB/sec set SizeInMBs to be 10 MB or higher."
-  default     = "5"
+  description = "Buffer incoming data to the specified size, in MBs, before delivering it to the destination. Valid value is between 64-128. Recommended is 128, specifying a smaller buffer size can result in the delivery of very small S3 objects, which are less efficient to query."
+  default     = "128"
 }
 
 variable "firehose_buffer_interval" {
   type        = "string"
-  description = "Buffer incoming data for the specified period of time, in seconds, before delivering it to the destination. The default value is 300."
-  default     = "300"
+  description = "Buffer incoming data for the specified period of time, in seconds, before delivering it to the destination. Valid value is between 60-900. Smaller value makes the logs delivered faster. Bigger value increase the chance to make the file size bigger, which are more efficient to query."
+  default     = "900"
 }

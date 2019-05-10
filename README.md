@@ -17,7 +17,7 @@ Based on the diagram above, the resources going to be created are:
 
 *Please Note:* This module **WILL NOT CREATE** AWS WAF Rules and WebACL. 
 
-If you are wondering what kind of rules you should create to protect your App, you might want to take a look at [Related Modules](#related-modules) section below.
+If you are wondering what kind of rules that you should create to protect your App, you might want to take a look at [Related Modules](#related-modules) section below.
 
 Also, to get a full picture on how to make use of this module together with AWS WAF WebACL and Rules, check [Examples](#examples) section.
 

@@ -1,11 +1,11 @@
-# Default provider.
+# Default AWS provider.
 provider "aws" {
   version = "v2.9.0"         # Use latest if possible. See https://github.com/terraform-providers/terraform-provider-aws/releases
   region  = "ap-southeast-1"
 }
 
 # us-east-1 provider. Used by webacl_supporting_resources.
-# If WAF resources are meant to protect Cloudfront, they should be Global Resources.
+# If WAF resources are meant to protect Cloudfront, they should be Global Resources, and Global Resources are located in us-east-1.
 provider "aws" {
   version = "v2.9.0"    # Use latest if possible. See https://github.com/terraform-providers/terraform-provider-aws/releases
   region  = "us-east-1"
@@ -29,7 +29,7 @@ module "owasp_top_10_rules" {
   environment    = "staging"
   description    = "OWASP Top 10 rules for tsiwaf"
 
-  target_scope      = "global" # this variable value should be set to global
+  target_scope      = "global" # [IMPORTANT] this variable value should be set to global
   create_rule_group = "true"
 
   max_expected_uri_size          = "512"
@@ -47,6 +47,8 @@ resource "random_id" "this" {
 }
 
 # A rate limiter rule
+# Read more:
+# https://www.terraform.io/docs/providers/aws/r/waf_rate_based_rule.html
 resource "aws_waf_rate_based_rule" "rate_limiter_rule" {
   name        = "tsiwaf-rate-limiter-${random_id.this.hex}"
   metric_name = "tsiwafRateLimiter${random_id.this.hex}"
@@ -56,9 +58,18 @@ resource "aws_waf_rate_based_rule" "rate_limiter_rule" {
 }
 
 # The module which is defined on this repository
+# For a better understanding of what are those parameters mean,
+# please read the description of each variable in the variables.tf file:
+# https://github.com/traveloka/terraform-aws-waf-webacl-supporting-resources/blob/master/variables.tf 
 module "webacl_supporting_resources" {
-  source = "../../"
+  # This module is published on the registry: https://registry.terraform.io/modules/traveloka/waf-webacl-supporting-resources
 
+  # Open the link above to see what the latest version is. Highly encouraged to use the latest version if possible.
+
+  source  = "traveloka/waf-webacl-supporting-resources/aws"
+  version = "0.2.0"
+
+  # [IMPORTANT]
   # Pass the us-east-1 provider like this.
   # This will make all resources created by this module are on us-east-1 region.
   providers {
@@ -76,6 +87,8 @@ module "webacl_supporting_resources" {
   firehose_buffer_interval = "60"
 }
 
+# Read more of what are those parameters mean:
+# https://www.terraform.io/docs/providers/aws/r/waf_web_acl.html
 resource "aws_waf_web_acl" "tsiwaf_webacl" {
   # The name or description of the web ACL.
   name = "tsiwaf-WebACL-${random_id.this.hex}"

@@ -1,33 +1,13 @@
-## v0.2.0 (Feb 28, 2019)
-
-NOTES:
-* Any Notes regarding your submitted PR, like breaking changes or else.
+## v0.2.0 (May 13, 2019)
 
 FEATURES:
 
-* **New Source:** `aws_000_0000` ([#references_to_issue](./))
+* Add Tags to Service Role for Firehose
+* Rename Cloudwatch Log Group name for Firehose S3 Delivery Error Log
+* Enable Logs in Parquet format which requires to create AWS Glue Data Catalog
 
-ENHANCEMENTS:
-
-* feature: Add support for new version of AWS API
-
-BUG FIXES:
-
-* Prevent error from evil bugs
-
-## v0.1.0 (Jan 1, 2019)
+## v0.1.0 (Mar 22, 2019)
 
 NOTES:
-* Any Notes regarding your submitted PR, like breaking changes or else.
 
-FEATURES:
-
-* **New Source:** `aws_000_0000` ([#references_to_issue](./))
-
-ENHANCEMENTS:
-
-* feature: Add support for new version of AWS API
-
-BUG FIXES:
-
-* Prevent error from evil bugs
+* Initial Release

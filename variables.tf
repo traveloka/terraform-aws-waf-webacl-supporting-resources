@@ -17,10 +17,10 @@ variable "description" {
   type        = "string"
   description = "The description of these resources."
 }
-
+#https://docs.aws.amazon.com/AmazonS3/latest/user-guide/server-access-logging.html
 variable "s3_logging_bucket" {
   type        = "string"
-  description = "The name of an S3 Bucket which store logging for WebACL traffic information bucket. NOTE: SHOULD BE IN THE SAME REGION AS THE BUCKET."
+  description = "The name of the target S3 Bucket which store Access Logs for WebACL Bucket created by this module
 }
 
 variable "firehose_buffer_size" {

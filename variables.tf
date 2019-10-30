@@ -24,6 +24,11 @@ variable "s3_logging_bucket" {
   description = "The name of the target S3 Bucket which store Access Logs for WebACL Bucket created by this module"
 }
 
+variable "s3_kms_key_arn" {
+  type        = "string"
+  description = "KMS key ARN for S3 encryption"
+}
+
 variable "firehose_buffer_size" {
   type        = "string"
   description = "Buffer incoming data to the specified size, in MBs, before delivering it to the destination. Valid value is between 64-128. Recommended is 128, specifying a smaller buffer size can result in the delivery of very small S3 objects, which are less efficient to query."

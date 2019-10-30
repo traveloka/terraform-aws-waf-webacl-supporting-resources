@@ -295,6 +295,9 @@ resource "aws_kinesis_firehose_delivery_stream" "waf" {
   destination = "extended_s3"
 
   extended_s3_configuration {
+    # Ensure encrytped delivery stream - https://www.cloudconformity.com/knowledge-base/aws/Firehose/delivery-stream-encrypted.html
+    kms_key_arn = "${var.s3_kms_key_arn}"
+
     role_arn   = "${aws_iam_role.firehose.arn}"
     bucket_arn = "${aws_s3_bucket.webacl_traffic_information.arn}"
 

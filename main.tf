@@ -44,6 +44,15 @@ resource "aws_s3_bucket" "webacl_traffic_information" {
   }
 }
 
+resource "aws_s3_bucket_public_access_block" "this" {
+  bucket = aws_s3_bucket.webacl_traffic_information.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
 # AWS Glue Catalog Database. This resource is needed by Amazon Kinesis Firehose as data format conversion configuration, for transforming from JSON to Parquet.
 resource "aws_glue_catalog_database" "database" {
   name        = "${lower(var.service_name)}_webacl_${random_id.this.hex}"
